@@ -1,0 +1,30 @@
+experiment_name: clip_frozen_baseline
+seed: 42
+data:
+  train_manifest: data/train.csv
+  validation_manifest: data/validation.csv
+  test_manifest: data/test.csv
+  frames_per_video: 8
+  frame_sampling_strategy: uniform
+  clip_length: 1
+  input_resolution: 224
+  face_margin: 0.2
+  normalization: clip
+  identity_disjoint: false
+model:
+  name: openai/clip-vit-base-patch16
+  freeze_backbone: true
+  local_files_only: true
+  hidden_dim: null
+train:
+  epochs: 20
+  batch_size: 32
+  learning_rate: 0.001
+  optimizer: adamw
+  weight_decay: 0.0001
+  early_stopping_patience: 5
+  num_workers: 0
+evaluation:
+  aggregation: mean
+  top_k: 3
+  threshold: 0.5

@@ -1,0 +1,4 @@
+name: openai/clip-vit-base-patch16
+freeze_backbone: true
+local_files_only: true
+hidden_dim: null
