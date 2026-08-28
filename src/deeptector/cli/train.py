@@ -51,7 +51,13 @@ def main() -> None:
         "num_workers": int(train_config.get("num_workers", 0)),
     }
     train_loader = build_loader(
-        data_config["train_manifest"], data_config, split="train", shuffle=True, **common
+        data_config["train_manifest"],
+        data_config,
+        split="train",
+        shuffle=True,
+        balanced_sampling=bool(train_config.get("balanced_sampling", False)),
+        seed=int(config.get("seed", 42)),
+        **common,
     )
     validation_loader = build_loader(
         data_config["validation_manifest"], data_config, split="validation", **common

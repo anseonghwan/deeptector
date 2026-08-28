@@ -2,19 +2,25 @@
 
 from __future__ import annotations
 
+import logging
+import os
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import torch
 import yaml
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from deeptector.data.dataset import VideoFrameDataset
 from deeptector.data.face_detection import OpenCVHaarFaceDetector
-from deeptector.data.manifest import load_manifest
+from deeptector.data.manifest import VideoRecord, load_manifest
 from deeptector.data.sampling import UniformFrameSampler
 from deeptector.data.transforms import ImageTransform
 from deeptector.models.classifier import DeepfakeClassifier
 from deeptector.models.clip_encoder import CLIPVisualEncoder
+
+LOGGER = logging.getLogger(__name__)
 
 
 def load_config(path: str | Path) -> dict[str, Any]:
@@ -35,8 +41,9 @@ def save_config(config: dict[str, Any], path: str | Path) -> None:
 
 def build_model(config: dict[str, Any]) -> DeepfakeClassifier:
     """Construct the configured visual baseline."""
+    model_name = os.path.expandvars(str(config.get("name", "openai/clip-vit-base-patch16")))
     encoder = CLIPVisualEncoder(
-        config.get("name", "openai/clip-vit-base-patch16"),
+        model_name,
         freeze=bool(config.get("freeze_backbone", True)),
         local_files_only=bool(config.get("local_files_only", True)),
     )
@@ -51,6 +58,8 @@ def build_loader(
     batch_size: int,
     shuffle: bool = False,
     num_workers: int = 0,
+    balanced_sampling: bool = False,
+    seed: int = 42,
 ) -> DataLoader[dict[str, object]]:
     """Build a manifest-filtered deterministic frame loader."""
     all_records = load_manifest(manifest_path)
@@ -71,10 +80,44 @@ def build_loader(
         OpenCVHaarFaceDetector(),
         face_margin=float(data_config.get("face_margin", 0.2)),
     )
+    label_counts = Counter(record.label for record in records)
+    sampler = None
+    if balanced_sampling:
+        if split != "train":
+            raise ValueError("Class-balanced sampling is permitted only for the train split")
+        sampler = build_class_balanced_sampler(records, dataset.samples, seed=seed)
+    LOGGER.info(
+        "split=%s label_counts=%s balanced_sampling=%s strategy=%s samples_per_epoch=%d",
+        split,
+        dict(sorted(label_counts.items())),
+        balanced_sampling,
+        "inverse_manifest_label_frequency" if balanced_sampling else "none",
+        len(dataset),
+    )
     return DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle if sampler is None else False,
+        sampler=sampler,
         num_workers=num_workers,
         pin_memory=False,
+    )
+
+
+def build_class_balanced_sampler(
+    records: list[VideoRecord], samples: list[tuple[int, int]], *, seed: int
+) -> WeightedRandomSampler:
+    """Weight train frames by inverse manifest-level label frequency."""
+    labels = [int(record.label) for record in records]
+    counts = Counter(labels)
+    if len(counts) < 2:
+        raise ValueError("Balanced sampling requires at least two training labels")
+    class_weights = {label: 1.0 / count for label, count in counts.items()}
+    sample_weights = [class_weights[labels[record_index]] for record_index, _ in samples]
+    generator = torch.Generator().manual_seed(seed)
+    return WeightedRandomSampler(
+        sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+        generator=generator,
     )

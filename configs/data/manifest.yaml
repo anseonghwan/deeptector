@@ -1,2 +1,2 @@
 required_columns: [video_id, video_path, dataset, split, label]
-optional_columns: [identity_id, manipulation_type, manipulation_family, compression, fps, duration]
+optional_columns: [identity_id, source_video_id, manipulation_type, manipulation_family, compression, fps, duration]

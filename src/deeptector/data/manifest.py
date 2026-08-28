@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -62,7 +63,7 @@ def load_manifest(path: str | Path, *, validate: bool = True) -> list[VideoRecor
         values = {name: _optional(row[name]) for name in names if name in frame.columns}
         values.update(
             video_id=str(row["video_id"]),
-            video_path=str(row["video_path"]),
+            video_path=str(Path(os.path.expandvars(str(row["video_path"])))),
             dataset=str(row["dataset"]),
             split="validation" if split == "val" else split,
             label=label,
@@ -81,8 +82,10 @@ def assert_no_split_leakage(
 ) -> None:
     """Raise when video/source/identity groups cross data splits."""
     records = list(records)
-    for attribute in ("video_id", "source_video_id") if source_disjoint else ("video_id",):
-        _assert_group_disjoint(records, attribute)
+    _assert_unique_video_ids(records)
+    _assert_group_disjoint(records, "video_id")
+    if source_disjoint:
+        _assert_source_disjoint(records)
     if identity_disjoint:
         _assert_group_disjoint(records, "identity_id")
 
@@ -97,6 +100,32 @@ def _assert_group_disjoint(records: list[VideoRecord], attribute: str) -> None:
     if leaked:
         examples = list(leaked.items())[:5]
         raise ValueError(f"Split leakage detected for {attribute}: {examples}")
+
+
+def source_ids(record: VideoRecord) -> tuple[str, ...]:
+    """Return every source identity encoded in a manifest lineage field."""
+    if record.source_video_id is None:
+        return ()
+    return tuple(part.strip() for part in str(record.source_video_id).split("|") if part.strip())
+
+
+def _assert_source_disjoint(records: list[VideoRecord]) -> None:
+    groups: dict[str, set[str]] = {}
+    for record in records:
+        for source_id in source_ids(record):
+            groups.setdefault(source_id, set()).add(record.split)
+    leaked = {key: splits for key, splits in groups.items() if len(splits) > 1}
+    if leaked:
+        raise ValueError(f"Split leakage detected for source_video_id: {list(leaked.items())[:5]}")
+
+
+def _assert_unique_video_ids(records: list[VideoRecord]) -> None:
+    counts: dict[str, int] = {}
+    for record in records:
+        counts[record.video_id] = counts.get(record.video_id, 0) + 1
+    duplicates = sorted(video_id for video_id, count in counts.items() if count > 1)
+    if duplicates:
+        raise ValueError(f"Duplicate video_id values detected: {duplicates[:5]}")
 
 
 def filter_records(

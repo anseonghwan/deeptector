@@ -1,0 +1,32 @@
+experiment_name: ffpp_clip_frozen_smoke
+seed: 42
+data:
+  train_manifest: data/manifests/ffpp_c23_smoke.csv
+  validation_manifest: data/manifests/ffpp_c23_smoke.csv
+  test_manifest: data/manifests/ffpp_c23_smoke.csv
+  compression: c23
+  frames_per_video: 1
+  frame_sampling_strategy: uniform
+  clip_length: 1
+  input_resolution: 224
+  face_margin: 0.2
+  normalization: clip
+  identity_disjoint: false
+model:
+  name: ${DEEPTECTOR_DATA_ROOT}/models/openai-clip-vit-base-patch16
+  freeze_backbone: true
+  local_files_only: true
+  hidden_dim: null
+train:
+  epochs: 1
+  balanced_sampling: true
+  batch_size: 2
+  learning_rate: 0.001
+  optimizer: adamw
+  weight_decay: 0.0001
+  early_stopping_patience: 1
+  num_workers: 0
+evaluation:
+  aggregation: mean
+  top_k: 1
+  threshold: 0.5

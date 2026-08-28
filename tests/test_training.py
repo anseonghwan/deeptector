@@ -1,3 +1,4 @@
+import pytest
 import torch
 from helpers import TinyEncoder
 from torch.utils.data import DataLoader, Dataset
@@ -37,3 +38,38 @@ def test_synthetic_training_smoke(tmp_path):
     result = trainer.fit(loader, loader, epochs=2)
     assert result.epochs_completed == 2
     assert (tmp_path / "best.pt").exists()
+
+
+@torch.no_grad()
+def _xpu_outputs_are_finite(model, loader):
+    batch = next(iter(loader))
+    output = model(batch["image"].to("xpu"))
+    return bool(torch.isfinite(output.logits).all())
+
+
+@pytest.mark.skipif(
+    not (getattr(torch, "xpu", None) and torch.xpu.is_available()),
+    reason="Intel XPU is unavailable",
+)
+def test_xpu_training_smoke(tmp_path):
+    torch.manual_seed(4)
+    torch.xpu.manual_seed_all(4)
+    device = torch.device("xpu")
+    model = DeepfakeClassifier(TinyEncoder())
+    optimizer = create_optimizer(model, learning_rate=0.01)
+    loader = DataLoader(SyntheticDataset(), batch_size=2)
+    trainer = Trainer(
+        model,
+        optimizer,
+        device,
+        checkpoint_path=tmp_path / "xpu-best.pt",
+        patience=1,
+    )
+
+    result = trainer.fit(loader, loader, epochs=1)
+
+    assert trainer.amp_enabled
+    assert next(model.parameters()).device.type == "xpu"
+    assert result.epochs_completed == 1
+    assert (tmp_path / "xpu-best.pt").exists()
+    assert _xpu_outputs_are_finite(model, loader)

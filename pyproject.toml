@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Reproducible visual foundation-model baseline for deepfake detection research"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.24", "opencv-python-headless>=4.8", "pandas>=2.0", "pillow>=10", "pyyaml>=6", "scikit-learn>=1.3", "torch>=2.1", "transformers>=4.40"]
+dependencies = ["numpy>=1.24", "opencv-python-headless>=4.8,<5", "pandas>=2.0", "pillow>=10", "pyyaml>=6", "scikit-learn>=1.3", "torch>=2.1", "transformers>=4.40"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.5"]
@@ -16,6 +16,8 @@ dev = ["pytest>=8", "ruff>=0.5"]
 [project.scripts]
 deeptector-train = "deeptector.cli.train:main"
 deeptector-evaluate = "deeptector.cli.evaluate:main"
+deeptector-prepare-ffpp = "deeptector.cli.prepare_ffpp:main"
+deeptector-real-smoke = "deeptector.cli.real_smoke:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/deeptector"]

@@ -7,3 +7,4 @@ runs/
 /data/
 *.pt
 *.pth
+*.log

@@ -46,8 +46,9 @@ class Trainer:
         self.patience = patience
         self.config = config or {}
         self.loss_fn = binary_classification_loss()
-        self.amp_enabled = device.type == "cuda"
-        self.scaler = torch.amp.GradScaler("cuda", enabled=self.amp_enabled)
+        amp_requested = bool(self.config.get("train", {}).get("amp", True))
+        self.amp_enabled = amp_requested and device.type in {"cuda", "xpu"}
+        self.scaler = torch.amp.GradScaler(device.type, enabled=self.amp_enabled)
 
     def fit(
         self,

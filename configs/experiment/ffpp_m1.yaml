@@ -1,9 +1,10 @@
-experiment_name: clip_frozen_baseline
+experiment_name: ffpp_clip_frozen_m1
 seed: 42
 data:
-  train_manifest: data/train.csv
-  validation_manifest: data/validation.csv
-  test_manifest: data/test.csv
+  train_manifest: data/manifests/ffpp_c23.csv
+  validation_manifest: data/manifests/ffpp_c23.csv
+  test_manifest: data/manifests/ffpp_c23.csv
+  compression: c23
   frames_per_video: 8
   frame_sampling_strategy: uniform
   clip_length: 1
@@ -12,13 +13,13 @@ data:
   normalization: clip
   identity_disjoint: false
 model:
-  name: openai/clip-vit-base-patch16
+  name: ${DEEPTECTOR_DATA_ROOT}/models/openai-clip-vit-base-patch16
   freeze_backbone: true
   local_files_only: true
   hidden_dim: null
 train:
   epochs: 20
-  balanced_sampling: false
+  balanced_sampling: true
   batch_size: 32
   learning_rate: 0.001
   optimizer: adamw

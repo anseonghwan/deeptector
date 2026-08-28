@@ -2,6 +2,7 @@ import numpy as np
 from helpers import ArrayReader, FullFrameDetector
 
 from deeptector.data.dataset import VideoFrameDataset
+from deeptector.data.face_detection import OpenCVHaarFaceDetector
 from deeptector.data.manifest import VideoRecord
 from deeptector.data.sampling import UniformFrameSampler
 from deeptector.data.transforms import ImageTransform
@@ -28,3 +29,8 @@ def test_dataset_output_shape_without_video_files():
     assert sample["image"].shape == (3, 8, 8)
     assert sample["label"].item() == 1.0
     assert sample["frame_index"] == 0
+
+
+def test_opencv_haar_detector_is_available():
+    detector = OpenCVHaarFaceDetector()
+    assert detector is not None

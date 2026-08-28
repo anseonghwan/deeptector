@@ -24,6 +24,8 @@ class VideoReader(Protocol):
 
     def read(self, path: str, index: int) -> np.ndarray: ...
 
+    def frame_rate(self, path: str) -> float: ...
+
 
 class OpenCVVideoReader:
     """OpenCV-backed RGB frame reader."""
@@ -51,6 +53,21 @@ class OpenCVVideoReader:
             if not ok:
                 raise OSError(f"Cannot read frame {index} from {path}")
             return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        finally:
+            capture.release()
+
+    def frame_rate(self, path: str) -> float:
+        """Return the container-reported frame rate."""
+        import cv2
+
+        capture = cv2.VideoCapture(path)
+        try:
+            if not capture.isOpened():
+                raise OSError(f"Cannot open video: {path}")
+            fps = float(capture.get(cv2.CAP_PROP_FPS))
+            if fps <= 0:
+                raise OSError(f"Video reports invalid FPS {fps}: {path}")
+            return fps
         finally:
             capture.release()
 

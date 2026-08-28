@@ -16,6 +16,9 @@ class ArrayReader:
     def read(self, path, index):
         return self.videos[path][index]
 
+    def frame_rate(self, path):
+        return 30.0
+
 
 class FullFrameDetector(FaceDetector):
     def detect(self, frame: np.ndarray):

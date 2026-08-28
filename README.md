@@ -87,6 +87,80 @@ deeptector-evaluate --config configs/experiment/baseline.yaml \
   --run-dir runs/cross_dataset
 ```
 
+## FaceForensics++ real-data integration
+
+Keep FF++ outside this repository and point DeepTector at its parent directory:
+
+```powershell
+$env:DEEPTECTOR_DATA_ROOT = "C:\Users\user\Datasets\deeptector"
+```
+
+Manifest paths retain `${DEEPTECTOR_DATA_ROOT}/ffpp` rather than embedding a machine-specific
+absolute path. The loader expands this variable at runtime. Source videos are never copied,
+renamed, re-encoded, or modified.
+
+DeepTector does not invent an FF++ split. Obtain the official FaceForensics++ split metadata and
+place these three files together in a directory selected by the researcher:
+
+```text
+train.json
+val.json
+test.json
+```
+
+Each file must contain the official JSON list of two-source pairs. Generate the combined manifest
+and mandatory pre-training split report with:
+
+```powershell
+deeptector-prepare-ffpp `
+  --splits-dir metadata/ffpp/splits `
+  --output data/manifests/ffpp_c23.csv `
+  --smoke-output data/manifests/ffpp_c23_smoke.csv `
+  --report data/manifests/ffpp_c23_split_report.json
+```
+
+Generation fails if official files are missing or malformed; either member of a manipulated pair
+crosses splits; expected real/manipulated files are missing; unknown videos exist; or video IDs are
+duplicated. For a fake such as `000_003.mp4`, the manifest records `source_video_id=000|003`, and
+both sources participate independently in leakage validation.
+
+Download `openai/clip-vit-base-patch16` once to
+`${DEEPTECTOR_DATA_ROOT}/models/openai-clip-vit-base-patch16`, then run the bounded real-data path
+test:
+
+```powershell
+deeptector-real-smoke --config configs/experiment/ffpp_m1.yaml --device auto
+```
+
+The report records actual FPS-derived timestamps, decode failures, face-detection failures,
+embedding/logit shapes, uncalibrated scores, and repeated-pass embedding consistency.
+
+The official FF++ config enables deterministic, train-only class balancing. A PyTorch
+`WeightedRandomSampler` derives inverse-frequency weights from the current train manifest and uses
+the experiment seed. It keeps the number of samples per epoch unchanged. Validation and test never
+use this sampler and retain the official 1:4 real:fake distribution. Set
+`train.balanced_sampling: false` to recover the original shuffled train loader.
+
+Only after manifest and smoke validation pass, launch the full frozen-backbone baseline:
+
+```powershell
+deeptector-train --config configs/experiment/ffpp_smoke.yaml --device auto
+deeptector-evaluate --config configs/experiment/ffpp_smoke.yaml `
+  --split validation `
+  --checkpoint runs/ffpp_clip_frozen_smoke/checkpoint.pt
+
+deeptector-train --config configs/experiment/ffpp_m1.yaml --device auto
+deeptector-evaluate --config configs/experiment/ffpp_m1.yaml `
+  --split validation `
+  --checkpoint runs/ffpp_clip_frozen_m1/checkpoint.pt
+deeptector-evaluate --config configs/experiment/ffpp_m1.yaml `
+  --split test `
+  --checkpoint runs/ffpp_clip_frozen_m1/checkpoint.pt
+```
+
+For Celeb-DF v2, create a test-only manifest from its official testing list and pass it with
+`--manifest`; never include Celeb-DF records in the M1 training or validation manifests.
+
 Run offline tests and lint:
 
 ```bash
@@ -102,12 +176,21 @@ Each run directory contains:
 
 ```text
 runs/<experiment>/
-├── config.yaml          # effective configuration
-├── checkpoint.pt       # best validation checkpoint
-├── training.log        # epoch-level history
-├── metrics.json        # frame/video metrics and experiment provenance
-└── predictions.csv     # dataset, video, frame, label, logit, score, face status
+├── config.yaml
+├── checkpoint.pt
+├── training.log
+└── evaluations/<split>/<run-id>/
+    ├── artifact_manifest.json
+    ├── config.yaml
+    ├── metrics.json
+    ├── frame_predictions.csv
+    └── video_predictions.csv
 ```
+
+Evaluation IDs default to UTC timestamps. Pass `--evaluation-id` for a stable explicit identifier.
+An existing non-empty evaluation directory is rejected instead of silently overwritten. The metrics
+artifact records the evaluated split, resolved checkpoint, aggregation, threshold, UTC timestamp,
+label counts, face-detection failures, and config reference.
 
 Seeds cover Python, NumPy, CPU PyTorch, and CUDA PyTorch. Deterministic PyTorch algorithms are requested where practical. Uniform frame indices and face crops are deterministic. A missing face uses a deterministic center crop and is explicitly marked in predictions; the evaluator reports the failure rate.
 
