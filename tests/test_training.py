@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 import torch
 from helpers import TinyEncoder
@@ -15,6 +17,48 @@ class SyntheticDataset(Dataset):
     def __getitem__(self, index):
         label = float(index % 2)
         return {"image": torch.full((3, 8, 8), label), "label": torch.tensor(label)}
+
+
+class DirectLogitModel(torch.nn.Module):
+    def __init__(self, mode):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.tensor(0.25))
+        self.mode = mode
+
+    def forward(self, images):
+        logits = self.weight.expand(images.shape[0])
+        if self.mode == "logits":
+            logits = logits * torch.tensor(float("inf"), device=logits.device)
+        elif self.mode == "gradient":
+            logits = NonFiniteGradient.apply(logits)
+        return SimpleNamespace(logits=logits)
+
+
+class NonFiniteGradient(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, values):
+        return values.clone()
+
+    @staticmethod
+    def backward(ctx, gradient):
+        return torch.full_like(gradient, float("nan"))
+
+
+class NonFiniteLabelDataset(SyntheticDataset):
+    def __getitem__(self, index):
+        row = super().__getitem__(index)
+        row["label"] = torch.tensor(float("nan"))
+        return row
+
+
+class CountingSGD(torch.optim.SGD):
+    def __init__(self, parameters, **kwargs):
+        super().__init__(parameters, **kwargs)
+        self.step_calls = 0
+
+    def step(self, closure=None):
+        self.step_calls += 1
+        return super().step(closure)
 
 
 def test_checkpoint_round_trip(tmp_path):
@@ -38,6 +82,55 @@ def test_synthetic_training_smoke(tmp_path):
     result = trainer.fit(loader, loader, epochs=2)
     assert result.epochs_completed == 2
     assert (tmp_path / "best.pt").exists()
+
+
+def _trainer_for_failure(model, loader, tmp_path):
+    optimizer = CountingSGD(model.parameters(), lr=0.01)
+    checkpoint = tmp_path / "failed.pt"
+    trainer = Trainer(model, optimizer, torch.device("cpu"), checkpoint_path=checkpoint)
+    return trainer, optimizer, checkpoint, loader
+
+
+def test_training_rejects_non_finite_logits_before_step(tmp_path):
+    loader = DataLoader(SyntheticDataset(), batch_size=2)
+    trainer, optimizer, checkpoint, loader = _trainer_for_failure(
+        DirectLogitModel("logits"), loader, tmp_path
+    )
+
+    with pytest.raises(FloatingPointError, match="Non-finite logits detected during training"):
+        trainer.fit(loader, loader, epochs=1)
+
+    assert optimizer.step_calls == 0
+    assert not checkpoint.exists()
+    assert not (tmp_path / "last_checkpoint.pt").exists()
+
+
+def test_training_rejects_non_finite_loss_before_step(tmp_path):
+    loader = DataLoader(NonFiniteLabelDataset(), batch_size=2)
+    trainer, optimizer, checkpoint, loader = _trainer_for_failure(
+        DirectLogitModel("loss"), loader, tmp_path
+    )
+
+    with pytest.raises(FloatingPointError, match="Non-finite training loss detected"):
+        trainer.fit(loader, loader, epochs=1)
+
+    assert optimizer.step_calls == 0
+    assert not checkpoint.exists()
+    assert not (tmp_path / "last_checkpoint.pt").exists()
+
+
+def test_training_rejects_non_finite_gradient_before_step(tmp_path):
+    loader = DataLoader(SyntheticDataset(), batch_size=2)
+    trainer, optimizer, checkpoint, loader = _trainer_for_failure(
+        DirectLogitModel("gradient"), loader, tmp_path
+    )
+
+    with pytest.raises(FloatingPointError, match="Non-finite gradient detected in parameter"):
+        trainer.fit(loader, loader, epochs=1)
+
+    assert optimizer.step_calls == 0
+    assert not checkpoint.exists()
+    assert not (tmp_path / "last_checkpoint.pt").exists()
 
 
 @torch.no_grad()

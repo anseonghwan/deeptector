@@ -158,6 +158,32 @@ deeptector-evaluate --config configs/experiment/ffpp_m1.yaml `
   --checkpoint runs/ffpp_clip_frozen_m1/checkpoint.pt
 ```
 
+Training writes two distinct checkpoint contracts. `checkpoint.pt` is replaced only when
+validation loss improves and is the checkpoint used for evaluation. `last_checkpoint.pt` is
+atomically replaced after every successfully completed epoch and contains the optimizer,
+GradScaler, early-stopping, RNG, and balanced-sampler state required for deterministic
+epoch-boundary recovery. Resume into the same run directory with:
+
+```powershell
+deeptector-train --config configs/experiment/ffpp_m1.yaml --device auto `
+  --resume-from runs/ffpp_clip_frozen_m1/last_checkpoint.pt
+```
+
+The configured epoch count remains the total maximum; it is not interpreted as additional epochs.
+Resume does not support recovery from the middle of an epoch.
+
+Before launching the full experiment on an Intel Arc integrated GPU, run the bounded capacity
+benchmark. It keeps the full eight-frame M1 preprocessing definition but measures only the official
+smoke subset with frame batch sizes 2, 4, and 8. Reports are written under ignored `runs/` paths.
+
+```powershell
+deeptector-benchmark-xpu --config configs/experiment/ffpp_m1.yaml --device auto
+```
+
+The benchmark records end-to-end and compute-only throughput, validation throughput, finite
+logit/loss/gradient checks, XPU allocator peaks, shared system-memory evidence, face-detection
+failures, and post-trial device survival. It never launches the full 20-epoch experiment.
+
 For Celeb-DF v2, create a test-only manifest from its official testing list and pass it with
 `--manifest`; never include Celeb-DF records in the M1 training or validation manifests.
 
@@ -178,6 +204,7 @@ Each run directory contains:
 runs/<experiment>/
 ├── config.yaml
 ├── checkpoint.pt
+├── last_checkpoint.pt
 ├── training.log
 └── evaluations/<split>/<run-id>/
     ├── artifact_manifest.json

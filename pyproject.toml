@@ -18,6 +18,7 @@ deeptector-train = "deeptector.cli.train:main"
 deeptector-evaluate = "deeptector.cli.evaluate:main"
 deeptector-prepare-ffpp = "deeptector.cli.prepare_ffpp:main"
 deeptector-real-smoke = "deeptector.cli.real_smoke:main"
+deeptector-benchmark-xpu = "deeptector.cli.benchmark_xpu:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/deeptector"]

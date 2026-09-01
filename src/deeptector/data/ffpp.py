@@ -109,7 +109,6 @@ def build_ffpp_manifest(
     records: list[VideoRecord] = []
     unknown: list[str] = []
     missing: list[str] = []
-    seen_pairs: dict[str, set[str]] = defaultdict(set)
 
     real_dir = root / "original_sequences" / "youtube" / compression / "videos"
     real_files = {path.stem: path for path in real_dir.glob("*.mp4")}
@@ -137,7 +136,7 @@ def build_ffpp_manifest(
         str(path) for stem, path in real_files.items() if stem not in splits.source_to_split
     )
 
-    canonical_pairs = {min(key, "_".join(reversed(key.split("_")))) for key in splits.pair_to_split}
+    expected_directed_pairs = set(splits.pair_to_split)
     for manipulation in MANIPULATIONS:
         directory = root / "manipulated_sequences" / manipulation / compression / "videos"
         files = {path.stem: path for path in directory.glob("*.mp4")}
@@ -148,7 +147,6 @@ def build_ffpp_manifest(
                 unknown.append(str(path))
                 continue
             first, second = match.groups()
-            seen_pairs[manipulation].add(min(stem, f"{second}_{first}"))
             records.append(
                 VideoRecord(
                     video_id=f"ffpp:{manipulation}:{compression}:{stem}",
@@ -165,7 +163,7 @@ def build_ffpp_manifest(
                     compression=compression,
                 )
             )
-        for pair in sorted(canonical_pairs - seen_pairs[manipulation]):
+        for pair in sorted(expected_directed_pairs - files.keys()):
             missing.append(str(directory / f"{pair}.mp4"))
 
     duplicate_counts = Counter(record.video_id for record in records)

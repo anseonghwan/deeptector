@@ -21,6 +21,7 @@ train:
   epochs: 1
   balanced_sampling: true
   batch_size: 2
+  amp_initial_scale: 1024
   learning_rate: 0.001
   optimizer: adamw
   weight_decay: 0.0001

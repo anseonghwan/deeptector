@@ -19,11 +19,17 @@ def main() -> None:
     parser.add_argument("--config", default="configs/experiment/baseline.yaml")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--run-dir", default=None)
+    parser.add_argument(
+        "--resume-from",
+        default=None,
+        help="Resume from a last_checkpoint.pt produced at a successful epoch boundary",
+    )
     args = parser.parse_args()
     config = load_config(args.config)
     run_dir = Path(args.run_dir or "runs") / config["experiment_name"]
+    if args.resume_from and Path(args.resume_from).resolve().parent != run_dir.resolve():
+        parser.error("--resume-from must point inside the configured experiment run directory")
     configure_logging(run_dir / "training.log")
-    save_config(config, run_dir / "config.yaml")
     seed_everything(int(config.get("seed", 42)))
     device = select_device(args.device)
     train_config, data_config = config["train"], config["data"]
@@ -70,7 +76,16 @@ def main() -> None:
         patience=train_config.get("early_stopping_patience", 5),
         config=config,
     )
-    trainer.fit(train_loader, validation_loader, int(train_config.get("epochs", 20)))
+    resume_state = (
+        trainer.load_resume_state(args.resume_from, train_loader) if args.resume_from else None
+    )
+    save_config(config, run_dir / "config.yaml")
+    trainer.fit(
+        train_loader,
+        validation_loader,
+        int(train_config.get("epochs", 20)),
+        resume_state=resume_state,
+    )
 
 
 if __name__ == "__main__":
