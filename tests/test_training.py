@@ -133,6 +133,47 @@ def test_training_rejects_non_finite_gradient_before_step(tmp_path):
     assert not (tmp_path / "last_checkpoint.pt").exists()
 
 
+def _assert_amp_overflow_recovers(device, tmp_path, caplog):
+    initial_scale = 1024.0
+    model = DirectLogitModel("gradient")
+    optimizer = CountingSGD(model.parameters(), lr=0.01)
+    trainer = Trainer(
+        model,
+        optimizer,
+        device,
+        checkpoint_path=tmp_path / f"{device.type}-amp-best.pt",
+        config={"train": {"amp": True, "amp_initial_scale": initial_scale}},
+    )
+    if device.type == "cpu":
+        trainer.amp_enabled = True
+        trainer.scaler = torch.amp.GradScaler("cpu", enabled=True, init_scale=initial_scale)
+    loader = DataLoader(SyntheticDataset(), batch_size=2)
+    batch = next(iter(loader))
+    weight_before = model.weight.detach().cpu().clone()
+
+    with caplog.at_level("WARNING", logger="deeptector.training.trainer"):
+        loss, batch_size = trainer.run_batch(batch, training=True)
+
+    assert torch.isfinite(torch.tensor(loss))
+    assert batch_size == 2
+    assert optimizer.step_calls == 0
+    assert torch.equal(model.weight.detach().cpu(), weight_before)
+    assert trainer.scaler.get_scale() == initial_scale / 2
+    assert "amp_gradient_overflow" in caplog.text
+    assert "optimizer_step_skipped=true" in caplog.text
+
+    model.mode = "normal"
+    trainer.run_batch(batch, training=True)
+
+    assert optimizer.step_calls == 1
+    assert not torch.equal(model.weight.detach().cpu(), weight_before)
+    assert torch.isfinite(model.weight).all()
+
+
+def test_amp_overflow_skips_step_reduces_scale_and_recovers_on_cpu(tmp_path, caplog):
+    _assert_amp_overflow_recovers(torch.device("cpu"), tmp_path, caplog)
+
+
 @torch.no_grad()
 def _xpu_outputs_are_finite(model, loader):
     batch = next(iter(loader))
@@ -166,3 +207,11 @@ def test_xpu_training_smoke(tmp_path):
     assert result.epochs_completed == 1
     assert (tmp_path / "xpu-best.pt").exists()
     assert _xpu_outputs_are_finite(model, loader)
+
+
+@pytest.mark.skipif(
+    not (getattr(torch, "xpu", None) and torch.xpu.is_available()),
+    reason="Intel XPU is unavailable",
+)
+def test_xpu_amp_overflow_skips_step_reduces_scale_and_recovers(tmp_path, caplog):
+    _assert_amp_overflow_recovers(torch.device("xpu"), tmp_path, caplog)

@@ -240,19 +240,39 @@ class Trainer:
             if training:
                 self.scaler.scale(loss).backward()
                 self.scaler.unscale_(self.optimizer)
-                self._raise_for_non_finite_gradients()
+                non_finite_parameter = self._first_non_finite_gradient()
+                if non_finite_parameter is not None and not self.amp_enabled:
+                    raise FloatingPointError(
+                        f"Non-finite gradient detected in parameter: {non_finite_parameter}"
+                    )
+                scale_before = float(self.scaler.get_scale())
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
+                if non_finite_parameter is not None:
+                    scale_after = float(self.scaler.get_scale())
+                    if scale_after >= scale_before:
+                        raise FloatingPointError(
+                            "AMP did not reduce the loss scale after a non-finite gradient in "
+                            f"parameter: {non_finite_parameter}"
+                        )
+                    LOGGER.warning(
+                        "amp_gradient_overflow parameter=%s optimizer_step_skipped=true "
+                        "scale_before=%.1f scale_after=%.1f",
+                        non_finite_parameter,
+                        scale_before,
+                        scale_after,
+                    )
         return float(loss.detach()), int(labels.shape[0])
 
-    def _raise_for_non_finite_gradients(self) -> None:
+    def _first_non_finite_gradient(self) -> str | None:
         for name, parameter in self.model.named_parameters():
             if (
                 parameter.requires_grad
                 and parameter.grad is not None
                 and not torch.isfinite(parameter.grad).all()
             ):
-                raise FloatingPointError(f"Non-finite gradient detected in parameter: {name}")
+                return name
+        return None
 
 
 def create_optimizer(
