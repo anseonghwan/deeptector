@@ -1,0 +1,356 @@
+{
+  "schema_version": 1,
+  "artifact_type": "deeptector_m1_reproducibility_record",
+  "record_created_at_utc": "2026-09-02T07:50:55.371006Z",
+  "milestone": "M1",
+  "status": "complete_for_in_dataset_ffpp_c23_baseline",
+  "scope": {
+    "dataset": "FaceForensics++",
+    "compression": "c23",
+    "evaluation_type": "in-dataset",
+    "generalization_claim": false,
+    "identity_disjoint": false,
+    "score_is_calibrated_probability": false
+  },
+  "repository": {
+    "url": "https://github.com/anseonghwan/deeptector.git",
+    "branch": "main",
+    "base_commit": "ec4ea25ad79947d884584b16d95313c16d04f0dc",
+    "record_source_head": "b1af2d1a968fcb8d7352d39e71f041f0b27dc505",
+    "origin_head_before_publication": "ec4ea25ad79947d884584b16d95313c16d04f0dc",
+    "working_tree_clean_before_record": true,
+    "training_code_segments": [
+      {
+        "epochs": [1, 2, 3],
+        "commit": "1a3370f5d11682c8529e49c440dd4ed124283716",
+        "persistent_optimizer_steps_after_segment": 10800
+      },
+      {
+        "epochs": [4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "commit": "b1af2d1a968fcb8d7352d39e71f041f0b27dc505",
+        "change": "Recover AMP gradient overflow by skipping the affected optimizer step and backing off the GradScaler scale."
+      }
+    ]
+  },
+  "environment": {
+    "host_manufacturer": "LENOVO",
+    "host_model": "83D4",
+    "operating_system": "Microsoft Windows 11 Home",
+    "os_version": "10.0.26200",
+    "os_build": "26200",
+    "architecture": "64-bit",
+    "cpu": "Intel(R) Core(TM) Ultra 7 155H",
+    "total_physical_memory_bytes": 33945935872,
+    "gpu": "Intel(R) Arc(TM) Graphics",
+    "gpu_is_integrated": true,
+    "windows_gpu_driver_version": "32.0.101.8974",
+    "level_zero_runtime_driver_version": "1.15.39183+1",
+    "xpu_total_memory_bytes": 17716371456,
+    "python_executable": "C:\\Users\\user\\Desktop\\deeptector_\\.venv\\Scripts\\python.exe",
+    "python": "3.11.9",
+    "powershell": "7.6.4",
+    "packages": {
+      "torch": "2.13.0+xpu",
+      "transformers": "5.15.1",
+      "opencv": "4.14.0",
+      "numpy": "2.4.6",
+      "pandas": "3.0.5",
+      "scikit_learn": "1.9.0",
+      "pillow": "12.3.0",
+      "pyyaml": "6.0.3"
+    },
+    "xpu_available": true,
+    "xpu_device_count": 1,
+    "xpu_has_fp16": true
+  },
+  "data": {
+    "data_root_environment_variable": "DEEPTECTOR_DATA_ROOT",
+    "data_root_used": "C:\\Users\\user\\Datasets\\deeptector",
+    "manifest": {
+      "path": "data/manifests/ffpp_c23.csv",
+      "sha256": "ebee8dbfd4ce9dd23228a2063a8adf22dfe2e4c740a19a12ba6f7ea63eea2ab2",
+      "records": 5000
+    },
+    "split_report": {
+      "path": "data/manifests/ffpp_c23_split_report.json",
+      "sha256": "6cd1d6c87211cf1233529533d86f966c448586f64d2227193a9ccec59b32851c"
+    },
+    "official_split_metadata": {
+      "train": {
+        "path": "metadata/ffpp/splits/train.json",
+        "sha256": "e59386911255e6fb0a79a7808ec2210536b8c0474268342694c4bca766d1b347"
+      },
+      "validation": {
+        "path": "metadata/ffpp/splits/val.json",
+        "sha256": "b48cc511f66938e05356aaa9c67e150b1e3638c355db3d745225b0022884b36e"
+      },
+      "test": {
+        "path": "metadata/ffpp/splits/test.json",
+        "sha256": "886f5a0da623c25820692e0d8dc33d197ddb1db527a7f1cfcb9bcbca60fe4f40"
+      }
+    },
+    "counts": {
+      "train": {"real": 720, "fake": 2880, "total": 3600},
+      "validation": {"real": 140, "fake": 560, "total": 700},
+      "test": {"real": 140, "fake": 560, "total": 700}
+    },
+    "integrity": {
+      "duplicate_video_ids": 0,
+      "source_overlap_across_splits": 0,
+      "missing_files": 0,
+      "unknown_files": 0,
+      "directed_pair_completeness_checked": true
+    }
+  },
+  "model": {
+    "encoder": "openai/clip-vit-base-patch16",
+    "encoder_type": "CLIPVisionModel",
+    "encoder_frozen": true,
+    "embedding_dimension": 768,
+    "head": "LayerNorm(768) + Linear(768, 1)",
+    "load_warning": "Unused text-tower and projection keys are reported as UNEXPECTED when a full CLIP checkpoint is loaded through the intentionally vision-only CLIPVisionModel architecture.",
+    "pretrained_weights": {
+      "filename": "pytorch_model.bin",
+      "sha256": "ec89c7b09c749a60aae3c9cd910516f24b58214a7df060b48962d14c469cfbf0"
+    }
+  },
+  "configuration": {
+    "path": "configs/experiment/ffpp_m1.yaml",
+    "sha256": "3d197f9d7a179266207b10e9071a16e0efabb34421a33d4531ef3f6f56fa3910",
+    "seed": 42,
+    "frames_per_video": 8,
+    "frame_sampling_strategy": "uniform",
+    "input_resolution": 224,
+    "face_margin": 0.2,
+    "normalization": "clip",
+    "batch_size": 8,
+    "balanced_sampling_train_only": true,
+    "optimizer": "adamw",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "maximum_epochs": 20,
+    "early_stopping_patience": 5,
+    "amp_dtype": "float16",
+    "amp_initial_scale": 1024,
+    "num_workers": 0,
+    "video_aggregation": "mean",
+    "threshold": 0.5
+  },
+  "preflight": {
+    "capacity_report": {
+      "path": "runs/m1_xpu_capacity_20260828T063347Z/capacity_report.json",
+      "sha256": "6704738a75d8f3bb2d93d38013278b45881a03d03f98a4a99a68e3f27abcc3c8",
+      "created_at_utc": "2026-08-28T06:36:09.410165+00:00",
+      "recommended_batch_size": 8,
+      "batch_8_train_end_to_end_frames_per_second": 4.963399093698821,
+      "batch_8_train_compute_frames_per_second": 50.344677493068,
+      "batch_8_validation_frames_per_second": 5.583700800479068,
+      "batch_8_peak_xpu_allocated_bytes": 396482560,
+      "batch_8_peak_xpu_reserved_bytes": 442499072
+    },
+    "operational_report": {
+      "path": "runs/m1_xpu_operational_preflight_final/operational_preflight_report.json",
+      "sha256": "383065a3b1c5abee89a91636c560659a70e86e791c3de42b7dd2f45be6371bc0",
+      "created_at_utc": "2026-08-28T07:51:51.944073+00:00",
+      "success": true,
+      "steps": 448,
+      "frames": 3584,
+      "measured_seconds": 716.2233586999937,
+      "finite_logits_loss_gradients": true,
+      "face_detection_failures": 0,
+      "final_device_survived": true
+    }
+  },
+  "training": {
+    "initial_started_at_local": "2026-09-01T13:21:05.809+09:00",
+    "resumed_at_local": "2026-09-01T20:26:06.192+09:00",
+    "completed_at_local": "2026-09-02T10:30:29.783+09:00",
+    "completed_epochs": 12,
+    "best_epoch": 7,
+    "best_validation_loss": 0.3458118339233425,
+    "early_stopped": true,
+    "stale_epochs_at_completion": 5,
+    "nominal_training_batches": 43200,
+    "persistent_optimizer_steps": 43185,
+    "recoverable_amp_overflows": 15,
+    "skipped_optimizer_steps": 15,
+    "final_grad_scaler": {
+      "scale": 32768.0,
+      "growth_factor": 2.0,
+      "backoff_factor": 0.5,
+      "growth_interval": 2000,
+      "growth_tracker": 1720
+    },
+    "losses": [
+      {"epoch": 1, "train": 0.476372, "validation": 0.450362},
+      {"epoch": 2, "train": 0.415328, "validation": 0.397710},
+      {"epoch": 3, "train": 0.390271, "validation": 0.375049},
+      {"epoch": 4, "train": 0.379208, "validation": 0.427683},
+      {"epoch": 5, "train": 0.375197, "validation": 0.424975},
+      {"epoch": 6, "train": 0.369092, "validation": 0.422914},
+      {"epoch": 7, "train": 0.362156, "validation": 0.345812},
+      {"epoch": 8, "train": 0.363870, "validation": 0.535943},
+      {"epoch": 9, "train": 0.350221, "validation": 0.423961},
+      {"epoch": 10, "train": 0.352544, "validation": 0.451690},
+      {"epoch": 11, "train": 0.356799, "validation": 0.438044},
+      {"epoch": 12, "train": 0.346724, "validation": 0.481185}
+    ],
+    "face_detection_resumed_process_only": {
+      "covered_epochs": [4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "train": {"attempted": 259200, "failed": 1376, "failure_rate": 0.005309},
+      "validation": {"attempted": 50400, "failed": 351, "failure_rate": 0.006964}
+    },
+    "training_log": {
+      "path": "runs/ffpp_clip_frozen_m1/training.log",
+      "sha256": "99b409929930de26445b6dfb759fdfb0e437985ad8f5ba1815eb17fbecbed7c1"
+    }
+  },
+  "checkpoints": {
+    "best": {
+      "path": "runs/ffpp_clip_frozen_m1/checkpoint.pt",
+      "sha256": "9cae6b20acac7883fb99400f537d3fc75a77e60cf7990cbf052c41e89ccca517",
+      "bytes": 343311999,
+      "epoch": 7,
+      "validation_loss": 0.3458118339233425,
+      "optimizer_steps": 25193,
+      "model_tensors_finite": true
+    },
+    "last": {
+      "path": "runs/ffpp_clip_frozen_m1/last_checkpoint.pt",
+      "sha256": "4cc32cab17ba2dcd3b27a34e099f2d0ce8a4c6b69f7e0744c9a9eabbb96716da",
+      "bytes": 343332267,
+      "completed_epoch": 12,
+      "best_epoch": 7,
+      "stale_epochs": 5,
+      "optimizer_steps": 43185,
+      "model_tensors_finite": true
+    }
+  },
+  "evaluation": {
+    "protocol": {
+      "checkpoint_epoch": 7,
+      "aggregation": "mean",
+      "frames_per_video": 8,
+      "threshold": 0.5,
+      "test_used_for_retuning": false
+    },
+    "validation": {
+      "run_id": "20260902T062117465079Z",
+      "evaluated_at_utc": "2026-09-02T06:21:17.465079+00:00",
+      "counts": {"frames": 5600, "videos": 700},
+      "face_detection": {"attempted": 5600, "failed": 39, "failure_rate": 0.0069642857142857145},
+      "frame_level": {
+        "roc_auc": 0.8831136399872448,
+        "pr_auc": 0.9673406480032771,
+        "accuracy": 0.8435714285714285,
+        "precision": 0.9086167800453515,
+        "recall": 0.8944196428571428,
+        "f1": 0.9014623172103488,
+        "specificity": 0.6401785714285714,
+        "balanced_accuracy": 0.7672991071428571,
+        "confusion_matrix": [[717, 403], [473, 4007]]
+      },
+      "video_level": {
+        "roc_auc": 0.9219770408163265,
+        "pr_auc": 0.977895418713749,
+        "accuracy": 0.8785714285714286,
+        "precision": 0.9144851657940664,
+        "recall": 0.9357142857142857,
+        "f1": 0.9249779346866726,
+        "specificity": 0.65,
+        "balanced_accuracy": 0.7928571428571428,
+        "confusion_matrix": [[91, 49], [36, 524]]
+      },
+      "artifacts": {
+        "artifact_manifest.json": "e5ea8380a71236b739272c5e7966b314fe32da427590c8e643cc8e1225bdc225",
+        "config.yaml": "bd508aed4ba66a5f16f2f214a6c2ebbce51c084463d8b7b31782a3e6042b22af",
+        "frame_predictions.csv": "f1e81e08ef4171816c61edb31fc599da00ac285bed926910f7c10737b7d35f22",
+        "metrics.json": "c333eede673799e516d53233c091b1201461f2954ff2b0933f7a29c0c537796b",
+        "video_predictions.csv": "0d8655b7bacb8f3bf5e04566b6b6194aeca1041578629c0e0ad56c9fd477facc"
+      }
+    },
+    "test": {
+      "run_id": "20260902T072349348541Z",
+      "evaluated_at_utc": "2026-09-02T07:23:49.348541+00:00",
+      "counts": {"frames": 5600, "videos": 700},
+      "face_detection": {"attempted": 5600, "failed": 53, "failure_rate": 0.009464285714285715},
+      "frame_level": {
+        "roc_auc": 0.8742451570471939,
+        "pr_auc": 0.9651261625588846,
+        "accuracy": 0.8282142857142857,
+        "precision": 0.9156427221172023,
+        "recall": 0.8649553571428571,
+        "f1": 0.8895775941230487,
+        "specificity": 0.68125,
+        "balanced_accuracy": 0.7731026785714286,
+        "confusion_matrix": [[763, 357], [605, 3875]]
+      },
+      "video_level": {
+        "roc_auc": 0.9148852040816328,
+        "pr_auc": 0.9772092458084982,
+        "accuracy": 0.8642857142857143,
+        "precision": 0.9281767955801105,
+        "recall": 0.9,
+        "f1": 0.9138712601994561,
+        "specificity": 0.7214285714285714,
+        "balanced_accuracy": 0.8107142857142857,
+        "confusion_matrix": [[101, 39], [56, 504]]
+      },
+      "artifacts": {
+        "artifact_manifest.json": "3657b5800b12de413af472ebdbb6507f827ca1b6cbeb149a39a244208158d26f",
+        "config.yaml": "bd508aed4ba66a5f16f2f214a6c2ebbce51c084463d8b7b31782a3e6042b22af",
+        "frame_predictions.csv": "7aa2d29d5143492bee65e051242197a68f3c61e3803ed0e9351a0c09fd2f60eb",
+        "metrics.json": "96d124af0b8223dc20e9f93380389d5e78c537f7a82d74528e4945e9ecf35c02",
+        "video_predictions.csv": "67d709c6f4847569eb0b30624420608e0a9367d1232b86bbe4950be28d354f94"
+      }
+    }
+  },
+  "verification": {
+    "forced_xpu_amp_overflow_test": {"passed": 1, "failed": 0},
+    "full_pytest_after_amp_fix": {"passed": 50, "failed": 0, "skipped": 0},
+    "ruff_format_files_unchanged": 45,
+    "ruff_lint_passed": true,
+    "evaluation_csv_integrity_passed": true,
+    "non_finite_evaluation_scores": 0
+  },
+  "commands": {
+    "initial_training": [
+      "python", "-m", "deeptector.cli.train", "--config", "configs/experiment/ffpp_m1.yaml",
+      "--device", "xpu", "--run-dir", "runs"
+    ],
+    "resume_training": [
+      "python", "-m", "deeptector.cli.train", "--config", "configs/experiment/ffpp_m1.yaml",
+      "--device", "xpu", "--run-dir", "runs", "--resume-from",
+      "runs/ffpp_clip_frozen_m1/last_checkpoint.pt"
+    ],
+    "validation_evaluation": [
+      "python", "-m", "deeptector.cli.evaluate", "--config", "configs/experiment/ffpp_m1.yaml",
+      "--device", "xpu", "--split", "validation", "--checkpoint",
+      "runs/ffpp_clip_frozen_m1/checkpoint.pt", "--run-dir", "runs"
+    ],
+    "test_evaluation": [
+      "python", "-m", "deeptector.cli.evaluate", "--config", "configs/experiment/ffpp_m1.yaml",
+      "--device", "xpu", "--split", "test", "--checkpoint",
+      "runs/ffpp_clip_frozen_m1/checkpoint.pt", "--run-dir", "runs"
+    ]
+  },
+  "artifact_policy": {
+    "tracked_records": [
+      "docs/m1_final_results.md",
+      "docs/m1_reproducibility.json"
+    ],
+    "local_ignored_roots": ["runs", "data", "models", "datasets", "checkpoints"],
+    "raw_dataset_files_committed": false,
+    "pretrained_weights_committed": false,
+    "checkpoints_committed": false,
+    "prediction_csvs_committed": false
+  },
+  "limitations": [
+    "The result is in-dataset FF++ c23 evaluation and is not evidence of cross-dataset or unseen-manipulation generalization.",
+    "Identity-disjoint evaluation was not available.",
+    "Validation and test contain four times as many fake videos as real videos.",
+    "The threshold is fixed at 0.5 and scores are not calibrated probabilities.",
+    "Training face-detection counters for epochs 1-3 were not persisted across the interrupted process.",
+    "Raw datasets, model weights, checkpoints, and run artifacts remain local and are identified by hashes only."
+  ]
+}

@@ -6,6 +6,11 @@ DeepTector is a graduation research project about **generalizable deepfake detec
 
 This repository currently implements only the first milestone:
 
+The completed FF++ c23 baseline results are recorded in the
+[`Milestone 1 final results`](docs/m1_final_results.md) report. Exact environment, configuration,
+checkpoint, dataset, and evaluation hashes are preserved in the machine-readable
+[`Milestone 1 reproducibility record`](docs/m1_reproducibility.json).
+
 ```text
 video → deterministic uniform frame sampling → face detection/crop
       → frozen CLIP ViT-B/16 visual encoder → LayerNorm + binary head
