@@ -36,7 +36,12 @@ def _optional(value: Any) -> Any:
     return None if pd.isna(value) or value == "" else value
 
 
-def load_manifest(path: str | Path, *, validate: bool = True) -> list[VideoRecord]:
+def load_manifest(
+    path: str | Path,
+    *,
+    validate: bool = True,
+    expand_video_paths: bool = True,
+) -> list[VideoRecord]:
     """Load CSV or JSONL into typed video records."""
     path = Path(path)
     if not path.exists():
@@ -61,9 +66,12 @@ def load_manifest(path: str | Path, *, validate: bool = True) -> list[VideoRecor
         if split not in VALID_SPLITS:
             raise ValueError(f"Row {row_number}: unsupported split {split!r}")
         values = {name: _optional(row[name]) for name in names if name in frame.columns}
+        video_path = str(row["video_path"])
+        if expand_video_paths:
+            video_path = str(Path(os.path.expandvars(video_path)))
         values.update(
             video_id=str(row["video_id"]),
-            video_path=str(Path(os.path.expandvars(str(row["video_path"])))),
+            video_path=video_path,
             dataset=str(row["dataset"]),
             split="validation" if split == "val" else split,
             label=label,

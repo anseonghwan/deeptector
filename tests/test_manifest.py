@@ -65,3 +65,21 @@ def test_manifest_expands_environment_video_path(tmp_path, monkeypatch):
         ]
     ).to_csv(path, index=False)
     assert load_manifest(path)[0].video_path == str(tmp_path / "v1.mp4")
+
+
+def test_manifest_can_preserve_portable_environment_video_path(tmp_path):
+    path = tmp_path / "manifest.csv"
+    portable_path = "${DEEPTECTOR_DATA_ROOT}/ffpp/v1.mp4"
+    pd.DataFrame(
+        [
+            {
+                "video_id": "v1",
+                "video_path": portable_path,
+                "dataset": "synthetic",
+                "split": "train",
+                "label": 0,
+            }
+        ]
+    ).to_csv(path, index=False)
+
+    assert load_manifest(path, expand_video_paths=False)[0].video_path == portable_path

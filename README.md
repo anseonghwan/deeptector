@@ -192,6 +192,26 @@ failures, and post-trial device survival. It never launches the full 20-epoch ex
 For Celeb-DF v2, create a test-only manifest from its official testing list and pass it with
 `--manifest`; never include Celeb-DF records in the M1 training or validation manifests.
 
+## M2A protocol infrastructure: FF++ c23 LOMO
+
+The deterministic Leave-One-Manipulation-Out generator creates four protocol folds from the
+existing FF++ c23 manifest. Each fold excludes one of `Deepfakes`, `Face2Face`, `FaceSwap`, or
+`NeuralTextures` from train and validation, then tests on official-test real videos plus only that
+held-out fake method. Original split assignments and portable dataset paths are preserved.
+
+```powershell
+deeptector-prepare-ffpp-lomo `
+  --source-manifest data/manifests/ffpp_c23.csv `
+  --output-dir data/manifests/ffpp_lomo_c23
+```
+
+Outputs stay under ignored `data/` paths. The generated `protocol.json` records source and fold
+hashes, counts, and leakage checks. This protocol tests held-out manipulation transfer within
+FF++; it is not cross-dataset or identity-disjoint evaluation, and it cannot establish universal
+manipulation-agnostic detection. See
+[`docs/m2a_lomo_protocol.md`](docs/m2a_lomo_protocol.md) for the exact contract and future training
+handoff. No LOMO training is started by generation.
+
 Run offline tests and lint:
 
 ```bash
