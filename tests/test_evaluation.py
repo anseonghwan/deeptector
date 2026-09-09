@@ -3,6 +3,7 @@ import torch
 from helpers import TinyEncoder
 from torch.utils.data import DataLoader, Dataset
 
+from deeptector.cli.evaluate import select_evaluation_manifest
 from deeptector.evaluation.aggregation import aggregate_scores
 from deeptector.evaluation.evaluator import Evaluator, save_evaluation
 from deeptector.evaluation.metrics import binary_metrics
@@ -56,3 +57,24 @@ def test_evaluation_persists_frame_and_video_contract(tmp_path):
     assert metrics["face_detection"] == {"attempted": 4, "failed": 1, "failure_rate": 0.25}
     with pytest.raises(FileExistsError):
         save_evaluation(tmp_path / "evaluation", metrics, frames, videos, experiment=experiment)
+
+
+def test_protocol_bound_evaluation_rejects_manifest_override(tmp_path):
+    configured = tmp_path / "deepfakes.csv"
+    other = tmp_path / "faceswap.csv"
+    data = {"validation_manifest": str(configured), "test_manifest": str(configured)}
+
+    with pytest.raises(ValueError, match="cannot override"):
+        select_evaluation_manifest(
+            data,
+            split="test",
+            override=str(other),
+            protocol_binding={"fold_slug": "deepfakes"},
+        )
+
+    assert select_evaluation_manifest(
+        data,
+        split="test",
+        override=str(configured.resolve()),
+        protocol_binding={"fold_slug": "deepfakes"},
+    ) == str(configured.resolve())

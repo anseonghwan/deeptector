@@ -182,9 +182,20 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer | None = None,
     *,
     map_location: str | torch.device = "cpu",
+    expected_kind: str | None = None,
+    expected_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Load state and return checkpoint metadata."""
+    """Validate, load state, and return checkpoint metadata."""
     payload = torch.load(path, map_location=map_location, weights_only=False)
+    if expected_kind is not None:
+        if payload.get("schema_version") != CHECKPOINT_SCHEMA_VERSION:
+            raise ValueError("Checkpoint schema is incompatible with this training version")
+        if payload.get("checkpoint_kind") != expected_kind:
+            raise ValueError(f"Evaluation requires a {expected_kind} checkpoint")
+    if expected_config is not None and payload.get("config") != expected_config:
+        raise ValueError("Checkpoint config does not match the requested experiment config")
+    if "model" not in payload:
+        raise ValueError("Checkpoint is missing model state")
     model.load_state_dict(payload["model"])
     if optimizer is not None and payload.get("optimizer") is not None:
         optimizer.load_state_dict(payload["optimizer"])

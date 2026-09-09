@@ -65,6 +65,8 @@ class Trainer:
             enabled=self.amp_enabled,
             init_scale=amp_initial_scale,
         )
+        self.optimizer_steps = 0
+        self.amp_overflow_skips = 0
 
     def fit(
         self,
@@ -249,6 +251,7 @@ class Trainer:
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 if non_finite_parameter is not None:
+                    self.amp_overflow_skips += 1
                     scale_after = float(self.scaler.get_scale())
                     if scale_after >= scale_before:
                         raise FloatingPointError(
@@ -262,6 +265,8 @@ class Trainer:
                         scale_before,
                         scale_after,
                     )
+                else:
+                    self.optimizer_steps += 1
         return float(loss.detach()), int(labels.shape[0])
 
     def _first_non_finite_gradient(self) -> str | None:

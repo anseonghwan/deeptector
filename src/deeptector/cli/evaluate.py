@@ -7,12 +7,39 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from deeptector.cli.common import build_loader, build_model, load_config, save_config
+from deeptector.cli.common import (
+    build_loader,
+    build_model,
+    load_config,
+    save_config,
+    validate_configured_data_protocol,
+)
 from deeptector.data.manifest import load_manifest
 from deeptector.evaluation.evaluator import Evaluator, save_evaluation
 from deeptector.training.checkpoint import load_checkpoint
 from deeptector.utils.device import select_device
 from deeptector.utils.seed import seed_everything
+
+
+def select_evaluation_manifest(
+    data_config: dict[str, object],
+    *,
+    split: str,
+    override: str | None,
+    protocol_binding: dict[str, object] | None,
+) -> str:
+    """Select an evaluation manifest without allowing a bound fold to be bypassed."""
+    manifest_key = "validation_manifest" if split == "validation" else "test_manifest"
+    configured = str(data_config[manifest_key])
+    if (
+        override is not None
+        and protocol_binding is not None
+        and Path(override).resolve() != Path(configured).resolve()
+    ):
+        raise ValueError(
+            "Protocol-bound LOMO evaluation cannot override the configured fold manifest"
+        )
+    return override or configured
 
 
 def main() -> None:
@@ -31,13 +58,24 @@ def main() -> None:
     parser.add_argument("--evaluation-id", default=None)
     args = parser.parse_args()
     config = load_config(args.config)
+    protocol_binding = validate_configured_data_protocol(config["data"])
+    data_config, eval_config = config["data"], config["evaluation"]
+    manifest = select_evaluation_manifest(
+        data_config,
+        split=args.split,
+        override=args.manifest,
+        protocol_binding=protocol_binding,
+    )
     seed_everything(int(config.get("seed", 42)))
     device = select_device(args.device)
     model = build_model(config["model"])
-    metadata = load_checkpoint(args.checkpoint, model, map_location=device)
-    data_config, eval_config = config["data"], config["evaluation"]
-    manifest_key = "validation_manifest" if args.split == "validation" else "test_manifest"
-    manifest = args.manifest or data_config[manifest_key]
+    metadata = load_checkpoint(
+        args.checkpoint,
+        model,
+        map_location=device,
+        expected_kind="best" if protocol_binding is not None else None,
+        expected_config=config if protocol_binding is not None else None,
+    )
     loader = build_loader(
         manifest,
         data_config,
@@ -81,7 +119,9 @@ def main() -> None:
         "training_dataset": training_datasets,
         "validation_dataset": validation_datasets,
         "testing_dataset": datasets,
-        "evaluation_type": "cross-dataset" if args.manifest else "in-dataset",
+        "evaluation_type": (
+            "cross-dataset" if args.manifest and protocol_binding is None else "in-dataset"
+        ),
         "evaluated_split": args.split,
         "run_id": run_id,
         "evaluated_at_utc": evaluated_at.isoformat(),
@@ -100,6 +140,8 @@ def main() -> None:
             for key in ("input_resolution", "face_margin", "normalization")
         },
     }
+    if protocol_binding is not None:
+        experiment["data_protocol_binding"] = protocol_binding
     save_evaluation(
         run_dir,
         metrics,

@@ -5,12 +5,59 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from deeptector.cli.common import build_loader, build_model, load_config, save_config
+from deeptector.cli.common import (
+    build_loader,
+    build_model,
+    load_config,
+    save_config,
+    validate_configured_data_protocol,
+)
 from deeptector.data.manifest import assert_no_split_leakage, load_manifest
 from deeptector.training.trainer import Trainer, create_optimizer
 from deeptector.utils.device import select_device
 from deeptector.utils.logging import configure_logging
 from deeptector.utils.seed import seed_everything
+
+
+def validate_lomo_run_state(
+    run_dir: str | Path,
+    *,
+    resume_from: str | Path | None,
+    config: dict[str, object],
+) -> None:
+    """Fail closed when a LOMO invocation could overwrite or mix training state."""
+    run_dir = Path(run_dir)
+    best_checkpoint = run_dir / "checkpoint.pt"
+    last_checkpoint = run_dir / "last_checkpoint.pt"
+    config_snapshot = run_dir / "config.yaml"
+
+    if config_snapshot.exists() and load_config(config_snapshot) != config:
+        raise ValueError("Existing LOMO run config does not match the requested experiment config")
+
+    if resume_from is not None:
+        if Path(resume_from).resolve() != last_checkpoint.resolve():
+            raise ValueError(
+                "LOMO resume must use last_checkpoint.pt in the configured experiment run directory"
+            )
+        if not last_checkpoint.is_file():
+            raise FileNotFoundError(f"LOMO resume checkpoint does not exist: {last_checkpoint}")
+        if not best_checkpoint.is_file():
+            raise FileNotFoundError(
+                f"LOMO best checkpoint is missing beside resume state: {best_checkpoint}"
+            )
+        return
+
+    training_state = [
+        path
+        for path in (best_checkpoint, last_checkpoint, *run_dir.glob("*.pt.tmp"))
+        if path.exists()
+    ]
+    if training_state:
+        names = ", ".join(sorted(path.name for path in training_state))
+        raise FileExistsError(
+            "Existing LOMO training state requires an explicit --resume-from "
+            f"last_checkpoint.pt; found: {names}"
+        )
 
 
 def main() -> None:
@@ -26,8 +73,14 @@ def main() -> None:
     )
     args = parser.parse_args()
     config = load_config(args.config)
+    protocol_binding = validate_configured_data_protocol(config["data"])
     run_dir = Path(args.run_dir or "runs") / config["experiment_name"]
-    if args.resume_from and Path(args.resume_from).resolve().parent != run_dir.resolve():
+    if protocol_binding is not None:
+        try:
+            validate_lomo_run_state(run_dir, resume_from=args.resume_from, config=config)
+        except (FileExistsError, FileNotFoundError, ValueError) as error:
+            parser.error(str(error))
+    elif args.resume_from and Path(args.resume_from).resolve().parent != run_dir.resolve():
         parser.error("--resume-from must point inside the configured experiment run directory")
     configure_logging(run_dir / "training.log")
     seed_everything(int(config.get("seed", 42)))

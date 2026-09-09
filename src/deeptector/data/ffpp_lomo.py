@@ -40,6 +40,117 @@ class FFPPLOMOFold:
     metadata: dict[str, Any]
 
 
+def validate_ffpp_lomo_artifact(
+    protocol_manifest: str | Path,
+    fold_slug: str,
+    fold_manifest: str | Path | None = None,
+    *,
+    require_frozen_m1: bool = False,
+) -> dict[str, Any]:
+    """Verify a generated fold and return its immutable training binding."""
+    protocol_path = Path(protocol_manifest)
+    if not protocol_path.is_file():
+        raise FileNotFoundError(f"LOMO protocol manifest does not exist: {protocol_path}")
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    if protocol.get("artifact_type") != "deeptector_ffpp_lomo_protocol":
+        raise ValueError("Invalid LOMO protocol artifact type")
+    if protocol.get("protocol_version") != PROTOCOL_VERSION:
+        raise ValueError(f"Unsupported LOMO protocol version: {protocol.get('protocol_version')!r}")
+    folds = protocol.get("folds")
+    if not isinstance(folds, dict) or fold_slug not in folds:
+        raise ValueError(f"LOMO protocol has no fold {fold_slug!r}")
+    fold = folds[fold_slug]
+    if not isinstance(fold, dict):
+        raise TypeError(f"LOMO fold metadata must be a mapping: {fold_slug}")
+
+    manifest_name = fold.get("manifest")
+    if not isinstance(manifest_name, str) or Path(manifest_name).name != manifest_name:
+        raise ValueError(f"LOMO fold has an unsafe manifest name: {manifest_name!r}")
+    expected_manifest = protocol_path.parent / manifest_name
+    requested_manifest = Path(fold_manifest) if fold_manifest is not None else expected_manifest
+    if requested_manifest.resolve() != expected_manifest.resolve():
+        raise ValueError(
+            f"Configured LOMO manifest does not match protocol fold {fold_slug}: "
+            f"{requested_manifest} != {expected_manifest}"
+        )
+    if not expected_manifest.is_file():
+        raise FileNotFoundError(f"LOMO fold manifest does not exist: {expected_manifest}")
+    expected_fold_hash = fold.get("manifest_sha256")
+    actual_fold_hash = _sha256(expected_manifest)
+    if actual_fold_hash != expected_fold_hash:
+        raise ValueError(
+            f"LOMO fold manifest SHA-256 mismatch for {fold_slug}: "
+            f"{actual_fold_hash} != {expected_fold_hash}"
+        )
+
+    source = protocol.get("source_manifest")
+    if not isinstance(source, dict):
+        raise TypeError("LOMO protocol source_manifest must be a mapping")
+    source_path_value = source.get("path")
+    if not isinstance(source_path_value, str):
+        raise TypeError("LOMO protocol source manifest path must be a string")
+    source_path = Path(source_path_value)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"LOMO source manifest does not exist: {source_path}")
+    source_hash = _sha256(source_path)
+    if source_hash != source.get("sha256"):
+        raise ValueError("LOMO source manifest SHA-256 no longer matches the protocol")
+
+    official = protocol.get("integrity", {}).get("official_split_verification", {})
+    frozen_verified = (
+        isinstance(official, dict)
+        and official.get("verified") is True
+        and official.get("basis") == "frozen_m1_manifest_sha256"
+        and source_hash == FROZEN_M1_MANIFEST_SHA256
+    )
+    if require_frozen_m1 and not frozen_verified:
+        raise ValueError("LOMO training requires the frozen, officially verified M1 manifest")
+
+    held_out = fold.get("held_out_manipulation")
+    expected_held_out = next((name for name, slug in FOLD_SLUGS.items() if slug == fold_slug), None)
+    if held_out != expected_held_out:
+        raise ValueError(
+            f"LOMO fold held-out manipulation mismatch: {held_out!r} != {expected_held_out!r}"
+        )
+    source_records = load_manifest(source_path, expand_video_paths=False)
+    expected_fold = build_ffpp_lomo_fold(source_records, str(held_out))
+    records = load_manifest(expected_manifest, expand_video_paths=False)
+    _validate_fold_artifact_records(records, str(held_out))
+    if tuple(records) != expected_fold.records:
+        raise ValueError(
+            f"LOMO fold records do not match deterministic source derivation: {fold_slug}"
+        )
+    metadata = expected_fold.metadata
+    for key in (
+        "counts_by_split",
+        "counts_by_split_and_label",
+        "counts_by_split_and_manipulation",
+        "held_out_manipulation_counts",
+        "held_out_test_fake_manipulations",
+        "duplicate_video_ids",
+        "source_lineage_overlap_across_splits",
+        "source_split_assignments_preserved",
+    ):
+        if fold.get(key) != metadata[key]:
+            raise ValueError(f"LOMO fold metadata mismatch for {fold_slug}: {key}")
+    missing_files = _missing_video_paths(records)
+    if missing_files:
+        raise ValueError(
+            "LOMO fold references missing video files: " + json.dumps(missing_files[:10], indent=2)
+        )
+    return {
+        "protocol_version": PROTOCOL_VERSION,
+        "protocol_manifest": protocol_path.as_posix(),
+        "fold_slug": fold_slug,
+        "held_out_manipulation": held_out,
+        "source_manifest_sha256": source_hash,
+        "fold_manifest": expected_manifest.as_posix(),
+        "fold_manifest_sha256": actual_fold_hash,
+        "official_split_verified": frozen_verified,
+        "counts_by_split_and_label": metadata["counts_by_split_and_label"],
+    }
+
+
 def build_ffpp_lomo_folds(records: list[VideoRecord]) -> dict[str, FFPPLOMOFold]:
     """Build all four deterministic folds from official FF++ assignments."""
     _validate_source_records(records)
@@ -170,8 +281,19 @@ def _build_validated_fold(records: list[VideoRecord], held_out_manipulation: str
 
 
 def _validate_source_records(records: list[VideoRecord]) -> None:
+    _validate_common_ffpp_records(records)
+    counts = _counts_by_split_and_manipulation(records)
+    for split in SPLITS:
+        if counts[split].get("original", 0) == 0:
+            raise ValueError(f"LOMO source manifest has no real records in {split}")
+        missing = [value for value in MANIPULATIONS if counts[split].get(value, 0) == 0]
+        if missing:
+            raise ValueError(f"LOMO source manifest is missing {missing} in {split}")
+
+
+def _validate_common_ffpp_records(records: list[VideoRecord]) -> None:
     if not records:
-        raise ValueError("LOMO source manifest must not be empty")
+        raise ValueError("LOMO manifest must not be empty")
     assert_no_split_leakage(records)
     invalid_splits = sorted({record.split for record in records if record.split not in SPLITS})
     if invalid_splits:
@@ -202,13 +324,29 @@ def _validate_source_records(records: list[VideoRecord]) -> None:
     missing_lineage = sorted(record.video_id for record in records if not source_ids(record))
     if missing_lineage:
         raise ValueError(f"LOMO records have no source lineage: {missing_lineage[:5]}")
+
+
+def _validate_fold_artifact_records(records: list[VideoRecord], held_out_manipulation: str) -> None:
+    _validate_common_ffpp_records(records)
+    expected_seen = set(MANIPULATIONS) - {held_out_manipulation}
     counts = _counts_by_split_and_manipulation(records)
-    for split in SPLITS:
-        if counts[split].get("original", 0) == 0:
-            raise ValueError(f"LOMO source manifest has no real records in {split}")
-        missing = [value for value in MANIPULATIONS if counts[split].get(value, 0) == 0]
-        if missing:
-            raise ValueError(f"LOMO source manifest is missing {missing} in {split}")
+    for split in ("train", "validation"):
+        fake_manipulations = {
+            manipulation for manipulation in counts[split] if manipulation != "original"
+        }
+        if counts[split].get("original", 0) == 0 or fake_manipulations != expected_seen:
+            raise ValueError(
+                f"LOMO fold has invalid {split} manipulation composition: "
+                f"{sorted(fake_manipulations)}"
+            )
+    test_manipulations = set(counts["test"])
+    if counts["test"].get("original", 0) == 0 or test_manipulations != {
+        "original",
+        held_out_manipulation,
+    }:
+        raise ValueError(
+            f"LOMO fold has invalid test manipulation composition: {sorted(test_manipulations)}"
+        )
 
 
 def _fold_metadata(

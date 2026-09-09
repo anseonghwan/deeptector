@@ -71,6 +71,53 @@ def test_checkpoint_round_trip(tmp_path):
     assert metadata["best_metric"] == 0.7
 
 
+def test_evaluation_checkpoint_rejects_wrong_fold_config_before_model_load(tmp_path):
+    source = DeepfakeClassifier(TinyEncoder())
+    path = tmp_path / "checkpoint.pt"
+    save_checkpoint(
+        path,
+        source,
+        None,
+        epoch=3,
+        best_metric=0.7,
+        config={"fold": "faceswap"},
+    )
+    target = DeepfakeClassifier(TinyEncoder())
+    state_before = {key: value.clone() for key, value in target.state_dict().items()}
+
+    with pytest.raises(ValueError, match="config does not match"):
+        load_checkpoint(
+            path,
+            target,
+            expected_kind="best",
+            expected_config={"fold": "deepfakes"},
+        )
+
+    assert all(torch.equal(value, state_before[key]) for key, value in target.state_dict().items())
+
+
+def test_evaluation_checkpoint_rejects_resume_checkpoint(tmp_path):
+    model = DeepfakeClassifier(TinyEncoder())
+    path = tmp_path / "last_checkpoint.pt"
+    torch.save(
+        {
+            "schema_version": 2,
+            "checkpoint_kind": "last",
+            "model": model.state_dict(),
+            "config": {"fold": "deepfakes"},
+        },
+        path,
+    )
+
+    with pytest.raises(ValueError, match="requires a best checkpoint"):
+        load_checkpoint(
+            path,
+            model,
+            expected_kind="best",
+            expected_config={"fold": "deepfakes"},
+        )
+
+
 def test_synthetic_training_smoke(tmp_path):
     torch.manual_seed(4)
     model = DeepfakeClassifier(TinyEncoder())
@@ -157,6 +204,8 @@ def _assert_amp_overflow_recovers(device, tmp_path, caplog):
     assert torch.isfinite(torch.tensor(loss))
     assert batch_size == 2
     assert optimizer.step_calls == 0
+    assert trainer.optimizer_steps == 0
+    assert trainer.amp_overflow_skips == 1
     assert torch.equal(model.weight.detach().cpu(), weight_before)
     assert trainer.scaler.get_scale() == initial_scale / 2
     assert "amp_gradient_overflow" in caplog.text
@@ -166,6 +215,8 @@ def _assert_amp_overflow_recovers(device, tmp_path, caplog):
     trainer.run_batch(batch, training=True)
 
     assert optimizer.step_calls == 1
+    assert trainer.optimizer_steps == 1
+    assert trainer.amp_overflow_skips == 1
     assert not torch.equal(model.weight.detach().cpu(), weight_before)
     assert torch.isfinite(model.weight).all()
 

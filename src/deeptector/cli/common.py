@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from deeptector.data.dataset import VideoFrameDataset
 from deeptector.data.face_detection import OpenCVHaarFaceDetector
+from deeptector.data.ffpp_lomo import validate_ffpp_lomo_artifact
 from deeptector.data.manifest import VideoRecord, load_manifest
 from deeptector.data.sampling import UniformFrameSampler
 from deeptector.data.transforms import ImageTransform
@@ -21,6 +22,38 @@ from deeptector.models.classifier import DeepfakeClassifier
 from deeptector.models.clip_encoder import CLIPVisualEncoder
 
 LOGGER = logging.getLogger(__name__)
+
+
+def validate_configured_data_protocol(data_config: dict[str, Any]) -> dict[str, Any] | None:
+    """Validate optional LOMO bindings before model or run initialization."""
+    protocol = data_config.get("lomo_protocol")
+    fold = data_config.get("lomo_fold")
+    if protocol is None and fold is None:
+        return None
+    if not protocol or not fold:
+        raise ValueError("LOMO data config requires both lomo_protocol and lomo_fold")
+    manifest_keys = ("train_manifest", "validation_manifest", "test_manifest")
+    missing_manifests = [key for key in manifest_keys if not data_config.get(key)]
+    if missing_manifests:
+        raise ValueError(
+            "LOMO data config is missing required manifests: " + ", ".join(missing_manifests)
+        )
+    manifests = {str(data_config[key]) for key in manifest_keys}
+    if len(manifests) != 1:
+        raise ValueError("LOMO train, validation, and test must use the same fold manifest")
+    binding = validate_ffpp_lomo_artifact(
+        protocol,
+        str(fold),
+        manifests.pop(),
+        require_frozen_m1=bool(data_config.get("lomo_require_frozen_m1", True)),
+    )
+    configured_held_out = data_config.get("lomo_held_out_manipulation")
+    if configured_held_out != binding["held_out_manipulation"]:
+        raise ValueError(
+            "Configured LOMO held-out manipulation does not match protocol: "
+            f"{configured_held_out!r} != {binding['held_out_manipulation']!r}"
+        )
+    return binding
 
 
 def load_config(path: str | Path) -> dict[str, Any]:

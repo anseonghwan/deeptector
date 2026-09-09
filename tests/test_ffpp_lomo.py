@@ -1,4 +1,5 @@
 import hashlib
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from deeptector.data.ffpp_lomo import (
     FOLD_SLUGS,
     build_ffpp_lomo_fold,
     generate_ffpp_lomo_protocol,
+    validate_ffpp_lomo_artifact,
 )
 from deeptector.data.manifest import VideoRecord, assert_no_split_leakage, load_manifest
 
@@ -227,3 +229,63 @@ def test_source_change_during_generation_prevents_publication(tmp_path, monkeypa
 
     assert not any((output / f"{slug}.csv").exists() for slug in FOLD_SLUGS.values())
     assert not (output / "protocol.json").exists()
+
+
+def test_generated_fold_artifact_binding_is_verified(tmp_path, monkeypatch):
+    source, _ = _write_source_manifest(tmp_path, monkeypatch)
+    output = tmp_path / "lomo"
+    generate_ffpp_lomo_protocol(source, output)
+
+    binding = validate_ffpp_lomo_artifact(
+        output / "protocol.json", "deepfakes", output / "deepfakes.csv"
+    )
+
+    assert binding["fold_slug"] == "deepfakes"
+    assert binding["held_out_manipulation"] == "Deepfakes"
+    assert binding["fold_manifest_sha256"] == _sha256(output / "deepfakes.csv")
+    assert binding["official_split_verified"] is False
+
+
+def test_fold_artifact_binding_rejects_hash_tampering(tmp_path, monkeypatch):
+    source, _ = _write_source_manifest(tmp_path, monkeypatch)
+    output = tmp_path / "lomo"
+    generate_ffpp_lomo_protocol(source, output)
+    fold = output / "deepfakes.csv"
+    fold.write_bytes(fold.read_bytes() + b"\n")
+
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        validate_ffpp_lomo_artifact(output / "protocol.json", "deepfakes", fold)
+
+
+def test_fold_artifact_binding_rejects_non_derived_fold(tmp_path, monkeypatch):
+    source, _ = _write_source_manifest(tmp_path, monkeypatch)
+    output = tmp_path / "lomo"
+    generate_ffpp_lomo_protocol(source, output)
+    protocol_path = output / "protocol.json"
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+    fold = output / "deepfakes.csv"
+    records = load_manifest(fold, expand_video_paths=False)
+    records[0], records[1] = records[1], records[0]
+    write_manifest(records, fold)
+    protocol["folds"]["deepfakes"]["manifest_sha256"] = _sha256(fold)
+    protocol_path.write_text(
+        json.dumps(protocol, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="deterministic source derivation"):
+        validate_ffpp_lomo_artifact(protocol_path, "deepfakes", fold)
+
+
+def test_non_frozen_fold_cannot_satisfy_frozen_training_binding(tmp_path, monkeypatch):
+    source, _ = _write_source_manifest(tmp_path, monkeypatch)
+    output = tmp_path / "lomo"
+    generate_ffpp_lomo_protocol(source, output)
+
+    with pytest.raises(ValueError, match="frozen, officially verified"):
+        validate_ffpp_lomo_artifact(
+            output / "protocol.json",
+            "deepfakes",
+            output / "deepfakes.csv",
+            require_frozen_m1=True,
+        )

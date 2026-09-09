@@ -212,6 +212,24 @@ manipulation-agnostic detection. See
 [`docs/m2a_lomo_protocol.md`](docs/m2a_lomo_protocol.md) for the exact contract and future training
 handoff. No LOMO training is started by generation.
 
+Seed-42 execution configs live under `configs/experiment/m2a_lomo/`. Every LOMO train/evaluate
+entry validates the configured protocol version, frozen source hash, fold hash, held-out method,
+and counts before model initialization. Validate or run the bounded real-XPU preflight with:
+
+```powershell
+deeptector-validate-ffpp-lomo `
+  --config configs/experiment/m2a_lomo/deepfakes_seed42.yaml
+
+deeptector-preflight-lomo `
+  --config configs/experiment/m2a_lomo/deepfakes_seed42.yaml `
+  --device xpu
+```
+
+The XPU-only preflight processes one video per required split/manipulation category and writes no
+checkpoint. Its held-out test pass is label-free and records no loss or prediction metric. See
+[`docs/m2a_execution_protocol.md`](docs/m2a_execution_protocol.md) for the execution, resume,
+evaluation, and reporting contract.
+
 Run offline tests and lint:
 
 ```bash

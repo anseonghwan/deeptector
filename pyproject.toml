@@ -18,6 +18,8 @@ deeptector-train = "deeptector.cli.train:main"
 deeptector-evaluate = "deeptector.cli.evaluate:main"
 deeptector-prepare-ffpp = "deeptector.cli.prepare_ffpp:main"
 deeptector-prepare-ffpp-lomo = "deeptector.cli.prepare_ffpp_lomo:main"
+deeptector-validate-ffpp-lomo = "deeptector.cli.validate_ffpp_lomo:main"
+deeptector-preflight-lomo = "deeptector.cli.preflight_lomo:main"
 deeptector-real-smoke = "deeptector.cli.real_smoke:main"
 deeptector-benchmark-xpu = "deeptector.cli.benchmark_xpu:main"
 
