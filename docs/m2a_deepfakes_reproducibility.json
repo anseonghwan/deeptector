@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "artifact_type": "deeptector_m2a_lomo_fold_reproducibility",
+  "record_created_at_utc": "2026-09-10T06:53:27.9120869Z",
+  "milestone": "M2A",
+  "fold": "deepfakes",
+  "seed": 42,
+  "status": "complete",
+  "repository": {
+    "url": "https://github.com/anseonghwan/deeptector.git",
+    "branch": "main",
+    "execution_code_commit": "1ef6b577bb78b6e8b0b275d4b460a439a4ebb56d"
+  },
+  "execution": {
+    "device": "xpu",
+    "config_path": "configs/experiment/m2a_lomo/deepfakes_seed42.yaml",
+    "run_directory": "runs/m2a_lomo_deepfakes_seed42",
+    "completed_epochs": 11,
+    "best_epoch": 6,
+    "best_validation_loss": 0.407958,
+    "early_stopping": {
+      "triggered": true,
+      "epoch": 11,
+      "patience": 5
+    },
+    "interruption": {
+      "occurred": true,
+      "stage": "first epoch-6 attempt",
+      "cause": "transient OpenCV/FFmpeg read failure for 781.mp4 frame 270",
+      "recovery": "deterministic epoch-boundary resume from epoch-5 last_checkpoint.pt"
+    },
+    "amp_gradient_overflow_warning_count": 11,
+    "resume_segment_face_detection": {
+      "train": {
+        "attempted": 138240,
+        "failed": 702,
+        "failure_rate": 0.005078
+      },
+      "validation": {
+        "attempted": 26880,
+        "failed": 168,
+        "failure_rate": 0.00625
+      }
+    }
+  },
+  "evaluation": {
+    "validation": {
+      "artifact_directory": "runs/m2a_lomo_deepfakes_seed42/evaluations/validation/20260910T001521190904Z",
+      "checkpoint_epoch": 6,
+      "frame_count": 4480,
+      "video_count": 560,
+      "face_detection_failed": 28,
+      "face_detection_failure_rate": 0.00625,
+      "frame_metrics": {
+        "roc_auc": 0.8617354910714285,
+        "pr_auc": 0.9485828831942946,
+        "accuracy": 0.8071428571,
+        "precision": 0.8868567886,
+        "recall": 0.8514880952,
+        "f1": 0.8688126329,
+        "specificity": 0.6741071428571429,
+        "balanced_accuracy": 0.7627976190476191,
+        "confusion_matrix": [[755, 365], [499, 2861]]
+      },
+      "video_metrics": {
+        "roc_auc": 0.901904761904762,
+        "pr_auc": 0.9630905326335276,
+        "accuracy": 0.8482142857142857,
+        "precision": 0.9016786570743405,
+        "recall": 0.8952380952380953,
+        "f1": 0.8984468339307049,
+        "specificity": 0.7071428571428572,
+        "balanced_accuracy": 0.8011904761904763,
+        "confusion_matrix": [[99, 41], [44, 376]]
+      }
+    },
+    "heldout_test": {
+      "artifact_directory": "runs/m2a_lomo_deepfakes_seed42/evaluations/test/20260910T053251280969Z",
+      "checkpoint_epoch": 6,
+      "frame_count": 2240,
+      "video_count": 280,
+      "face_detection_failed": 29,
+      "face_detection_failure_rate": 0.012946428571428572,
+      "used_for_retuning": false,
+      "evaluation_count": 1,
+      "frame_metrics": {
+        "roc_auc": 0.9161926020408163,
+        "pr_auc": 0.9291969194015027,
+        "accuracy": 0.803125,
+        "precision": 0.7483540599853694,
+        "recall": 0.9133928571428571,
+        "f1": 0.8226779252110977,
+        "specificity": 0.6928571428571428,
+        "balanced_accuracy": 0.803125,
+        "confusion_matrix": [[776, 344], [97, 1023]]
+      },
+      "video_metrics": {
+        "roc_auc": 0.9501020408163265,
+        "pr_auc": 0.9564757690108294,
+        "accuracy": 0.8357142857142857,
+        "precision": 0.7732558139534884,
+        "recall": 0.95,
+        "f1": 0.8525641025641025,
+        "specificity": 0.7214285714285714,
+        "balanced_accuracy": 0.8357142857142857,
+        "confusion_matrix": [[101, 39], [7, 133]]
+      }
+    },
+    "derived_metrics_note": "Specificity and balanced accuracy were derived from the stored confusion matrices because the run-time metrics JSON did not serialize them. The implementation was updated for future folds without rerunning this held-out test."
+  },
+  "sha256": {
+    "config": "db3d35f8f8d098b1a1c4fe195f68297c963cfb9807dadb77ab825a6c3d49e682",
+    "source_m1_manifest": "ebee8dbfd4ce9dd23228a2063a8adf22dfe2e4c740a19a12ba6f7ea63eea2ab2",
+    "m2a_protocol": "1e09d454c23a38a04489e5a54f360a8742ab57cb26237f2ac76c95fa48ab0c93",
+    "fold_manifest": "a5e3395aae24135309773a684228b05e746dec994e4f7e74fc6bf3338ada5ed0",
+    "preflight_report": "acf1db95d5c15ce29e7f02acdb3c5563db7469167568556f157a7a67e579c17b",
+    "best_checkpoint": "66f1119818f776e89c648abcc186fa16429a38320060a6f2f2c079422b16db2f",
+    "last_checkpoint": "6299132770965612b01f46ca17ccae9f64cb9a8fd1434a594d49876b4b3877b9",
+    "training_log": "ad275acd2ee2bee83267dbfa2f4caabd54c222374c8b23b133e24e80bc92d9b8",
+    "validation_metrics": "11bdebaa274d7412c8759d8f2fb8db9292ff2a633e7f88d49193d2fac57f94d8",
+    "validation_frame_predictions": "9ffeae3357266c965153a71f59aeffe36e0e0cc04227852bec0eda236c2762c0",
+    "validation_video_predictions": "6081af827a9ce35f30036fe7d5ed169f18fe8f1dc8b3b3efcf06b7b281a45890",
+    "test_metrics": "56f406a4044fdb67e523aa0bdd5a5a556f73a15504a682998fd401bc40e660ca",
+    "test_frame_predictions": "022c11d4d928fc0dfc16f160a866253b8b2ba76c8855ff4ba207b8530036cb11",
+    "test_video_predictions": "3602464204912add5b2ecbcce1837b185ae149fc92cb7a992e666bdb50e0a6eb"
+  },
+  "verification": {
+    "ruff_format": "passed",
+    "ruff_check": "passed",
+    "pytest": {
+      "passed": 82,
+      "failed": 0
+    },
+    "m1_frozen_hashes": {
+      "config": "3d197f9d7a179266207b10e9071a16e0efabb34421a33d4531ef3f6f56fa3910",
+      "source_manifest": "ebee8dbfd4ce9dd23228a2063a8adf22dfe2e4c740a19a12ba6f7ea63eea2ab2",
+      "split_report": "6cd1d6c87211cf1233529533d86f966c448586f64d2227193a9ccec59b32851c"
+    }
+  },
+  "limitations": [
+    "Only one of four planned manipulation holdout folds is complete.",
+    "The experiment uses a single seed.",
+    "FaceForensics++ LOMO does not establish cross-dataset generalization.",
+    "The split is not claimed to be identity-disjoint."
+  ]
+}

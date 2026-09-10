@@ -21,7 +21,17 @@ def test_binary_metrics():
     metrics = binary_metrics([0, 0, 1, 1], [0.1, 0.2, 0.8, 0.9])
     assert metrics["roc_auc"] == 1.0
     assert metrics["pr_auc"] == 1.0
+    assert metrics["specificity"] == 1.0
+    assert metrics["balanced_accuracy"] == 1.0
     assert metrics["confusion_matrix"] == [[2, 0], [0, 2]]
+
+
+def test_binary_metrics_reports_specificity_and_balanced_accuracy():
+    metrics = binary_metrics([0, 0, 0, 1], [0.1, 0.9, 0.2, 0.8])
+    assert metrics["specificity"] == pytest.approx(2 / 3)
+    assert metrics["recall"] == 1.0
+    assert metrics["balanced_accuracy"] == pytest.approx(5 / 6)
+    assert metrics["confusion_matrix"] == [[2, 1], [0, 1]]
 
 
 class EvaluationDataset(Dataset):
